@@ -151,11 +151,13 @@ class TaskAssemblyInsertLink(QtCore.QObject):
             translation = insertionItem["translation"]
 
             # Check if object.Name & object.LinkedObject.Name exists
-            if not hasattr(object, 'Name') \
-                or not hasattr(object, 'LinkedObject') \
-                or not hasattr(object.LinkedObject, 'Name'):
+            if (
+                not hasattr(object, "Name")
+                or not hasattr(object, "LinkedObject")
+                or not hasattr(object.LinkedObject, "Name")
+            ):
                 continue
- 
+
             commands = commands + (
                 f'item = assembly.newObject("App::Link", "{object.Name}")\n'
                 f'item.LinkedObject = App.ActiveDocument.getObject("{object.LinkedObject.Name}")\n'
