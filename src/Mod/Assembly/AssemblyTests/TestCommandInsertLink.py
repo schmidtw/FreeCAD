@@ -46,13 +46,14 @@ except ImportError:
 
 import CommandInsertLink
 
+
 def _msg(text, end="\n"):
     """Write messages to the console including the line ending."""
     App.Console.PrintMessage(text + end)
 
 
 class TestCommandInsertLink(unittest.TestCase):
-    """ Unit tests for CommandInsertLink module. """
+    """Unit tests for CommandInsertLink module."""
 
     @classmethod
     def setUpClass(cls):

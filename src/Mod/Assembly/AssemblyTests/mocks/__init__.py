@@ -24,6 +24,7 @@
 """Mock classes for FreeCAD GUI testing."""
 
 from .MockGui import SetupGuiMocks
+
 SetupGuiMocks()
 
 __all__ = []
