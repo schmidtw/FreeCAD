@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # /****************************************************************************
 #                                                                           *
-#    Copyright (c) 2023 Ondsel <development@ondsel.com>                     *
+#    Copyright (c) 2025 Weston Schmidt <weston_schmidt@alumni.purdue.edu>   *
 #                                                                           *
 #    This file is part of FreeCAD.                                          *
 #                                                                           *
@@ -21,244 +21,30 @@
 #                                                                           *
 # ***************************************************************************/
 
-import FreeCAD as App
-import FreeCADGui as Gui
-import Part
+"""
+Unit tests for CommandInsertLink module.
+
+This module contains unit tests to verify the proper handling of null
+LinkedObject references in the TaskAssemblyInsertLink.accept() method.
+Tests ensure that invalid objects are gracefully skipped without causing
+AttributeError crashes.
+"""
+
 import unittest
-from PySide import QtCore, QtGui
-
-
-# Create mock Qt classes
-class MockQIcon:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    @staticmethod
-    def fromTheme(theme_name, fallback=None):
-        return MockQIcon()
-
-
-class MockQTreeWidgetItem:
-    def __init__(self, *args, **kwargs):
-        self.text_values = {}
-        self.data_values = {}
-        self._children = []
-
-    def setText(self, column, text):
-        self.text_values[column] = text
-
-    def text(self, column):
-        return self.text_values.get(column, "")
-
-    def setData(self, column, role, data):
-        self.data_values[(column, role)] = data
-
-    def data(self, column, role):
-        return self.data_values.get((column, role))
-
-    def setIcon(self, column, icon):
-        pass
-
-    def childCount(self):
-        """Mock method for getting child count."""
-        return len(self._children)
-
-    def child(self, index):
-        """Mock method for getting child by index."""
-        if 0 <= index < len(self._children):
-            return self._children[index]
-        return None
-
-    def addChild(self, child):
-        """Mock method for adding a child item."""
-        self._children.append(child)
-
-
-# Patch QtGui with our mock classes
-QtGui.QIcon = MockQIcon
-QtGui.QTreeWidgetItem = MockQTreeWidgetItem
-
-
-# Create mock GUI components for testing
-class MockCheckBox:
-    def __init__(self):
-        self.checked = False
-        self.stateChanged = MockSignal()
-
-    def setChecked(self, checked):
-        self.checked = checked
-
-    def isChecked(self):
-        return self.checked
-
-
-class MockButton:
-    def __init__(self):
-        pass
-
-    @property
-    def clicked(self):
-        return MockSignal()
-
-
-class MockLineEdit:
-    def __init__(self):
-        self.textChanged = MockSignal()
-
-    def text(self):
-        return ""
-
-    def setText(self, text):
-        pass
-
-
-class MockForm:
-    def __init__(self):
-        self.partList = MockPartList()
-        self.CheckBox_ShowOnlyParts = MockCheckBox()
-        self.CheckBox_RigidSubAsm = MockCheckBox()
-        self.openFileButton = MockButton()
-        self.filterPartList = MockLineEdit()
-
-    def installEventFilter(self, filter_obj):
-        """Mock method for Qt widget event filter installation."""
-        pass
-
-    def setWindowTitle(self, title):
-        """Mock method for setting window title."""
-        pass
-
-    def show(self):
-        """Mock method for showing the widget."""
-        pass
-
-    def hide(self):
-        """Mock method for hiding the widget."""
-        pass
-
-
-class MockPartList:
-    def __init__(self):
-        self.itemClicked = MockSignal()
-        self.itemDoubleClicked = MockSignal()
-        self._items = []
-
-    def header(self):
-        return MockHeader()
-
-    def clear(self):
-        self._items = []
-
-    def addTopLevelItem(self, item):
-        self._items.append(item)
-
-    def installEventFilter(self, filter_obj):
-        """Mock method for Qt widget event filter installation."""
-        pass
-
-    def expandAll(self):
-        """Mock method for expanding all tree items."""
-        pass
-
-    def topLevelItemCount(self):
-        """Mock method for getting top level item count."""
-        return len(self._items)
-
-    def topLevelItem(self, index):
-        """Mock method for getting top level item by index."""
-        if 0 <= index < len(self._items):
-            return self._items[index]
-        return None
-
-    def sizeHintForRow(self, row):
-        """Mock method for getting size hint for a row."""
-        return 20  # Return a reasonable default height
-
-    def setMinimumHeight(self, height):
-        """Mock method for setting minimum height."""
-        pass
-
-
-class MockHeader:
-    def hide(self):
-        pass
-
-
-class MockSignal:
-    def connect(self, slot):
-        """Mock method for connecting signals to slots."""
-        pass
-
-
-class MockPySideUic:
-    @staticmethod
-    def loadUi(ui_file):
-        return MockForm()
-
-
-# Mock the PySideUic if it doesn't exist
-if not hasattr(Gui, "PySideUic"):
-    Gui.PySideUic = MockPySideUic
-
-# Mock additional Gui methods that might be missing
-if not hasattr(Gui, "getDocument"):
-
-    def mock_getDocument(doc_name):
-        """Mock method for getting GUI document."""
-        return type(
-            "MockGuiDocument",
-            (),
-            {
-                "Name": doc_name,
-                "getObject": lambda obj_name: None,
-                "TreeRootObjects": [],  # Empty list of tree root objects
-            },
-        )()
-
-    Gui.getDocument = mock_getDocument
-
-# Mock Selection module
-if not hasattr(Gui, "Selection"):
-    Gui.Selection = type(
-        "MockSelection",
-        (),
-        {
-            "clearSelection": lambda *args: None,
-            "addSelection": lambda *args: None,
-            "getSelection": lambda *args: [],
-        },
-    )()
-
-# Mock addModule method
-if not hasattr(Gui, "addModule"):
-
-    def mock_addModule(module_name):
-        """Mock method for adding a module."""
-        pass
-
-    Gui.addModule = mock_addModule
-
-# Mock doCommandSkip method
-if not hasattr(Gui, "doCommandSkip"):
-
-    def mock_doCommandSkip(commands):
-        """Mock method for executing commands."""
-        pass
-
-    Gui.doCommandSkip = mock_doCommandSkip
-
-# Make QtCore, QtGui and Gui available in the global namespace for CommandInsertLink import
 import sys
-import builtins
+import os
+import FreeCAD as App
 
-builtins.QtCore = QtCore
-builtins.QtGui = QtGui
-builtins.Gui = Gui
-builtins.QIcon = MockQIcon
+# Handle both direct execution and module execution
+try:
+    # Try relative import first (when run as module)
+    from . import mocks  # pylint: disable=unused-import
+except ImportError:
+    # Fall back to absolute import (when run directly)
+    sys.path.insert(0, os.path.dirname(__file__))
+    import mocks  # pylint: disable=unused-import
 
-# Now we can import CommandInsertLink
 import CommandInsertLink
-
 
 def _msg(text, end="\n"):
     """Write messages to the console including the line ending."""
@@ -266,6 +52,8 @@ def _msg(text, end="\n"):
 
 
 class TestCommandInsertLink(unittest.TestCase):
+    """ Unit tests for CommandInsertLink module. """
+
     @classmethod
     def setUpClass(cls):
         """setUpClass()...
@@ -276,7 +64,6 @@ class TestCommandInsertLink(unittest.TestCase):
         This method does not have access to the class `self` reference, but it
         is able to call static methods within this same class.
         """
-        pass
 
     @classmethod
     def tearDownClass(cls):
@@ -286,7 +73,6 @@ class TestCommandInsertLink(unittest.TestCase):
         This method does not have access to the class `self` reference.  This method
         is able to call static methods within this same class.
         """
-        pass
 
     def setUp(self):
         """setUp()...
@@ -304,7 +90,7 @@ class TestCommandInsertLink(unittest.TestCase):
 
         self.assembly = App.ActiveDocument.addObject("Assembly::AssemblyObject", "Assembly")
 
-        _msg("  Temporary document '{}'".format(self.doc.Name))
+        _msg(f"  Temporary document '{self.doc.Name}'")
 
     def tearDown(self):
         """tearDown()...
@@ -316,7 +102,7 @@ class TestCommandInsertLink(unittest.TestCase):
     def test_mixed_valid_and_invalid_objects(self):
         """Test that accept() handles a mix of valid and invalid objects correctly."""
         operation = "Handle mixed valid/invalid objects"
-        _msg("  Test '{}'".format(operation))
+        _msg(f"  Test '{operation}'")
 
         mock_view = type("MockView", (), {"getSize": lambda: (800, 600)})()
         task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
@@ -392,13 +178,13 @@ class TestCommandInsertLink(unittest.TestCase):
                 result, "accept() should return True even with mixed valid/invalid objects"
             )
             _msg("  Successfully handled mixed valid/invalid objects")
-        except Exception as e:
-            self.fail("Failed to handle mixed objects: {}".format(e))
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.fail(f"Failed to handle mixed objects: {e}")
 
     def test_empty_insertion_stack(self):
         """Test that accept() handles empty insertion stack correctly."""
         operation = "Handle empty insertion stack"
-        _msg("  Test '{}'".format(operation))
+        _msg(f"  Test '{operation}'")
 
         mock_view = type("MockView", (), {"getSize": lambda: (800, 600)})()
         task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
@@ -410,5 +196,5 @@ class TestCommandInsertLink(unittest.TestCase):
             result = task.accept()
             self.assertTrue(result, "accept() should return True even with empty insertion stack")
             _msg("  Successfully handled empty insertion stack")
-        except Exception as e:
-            self.fail("Failed to handle empty insertion stack: {}".format(e))
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self.fail(f"Failed to handle empty insertion stack: {e}")
