@@ -168,9 +168,7 @@ class TestCommandInsertLink(unittest.TestCase):
 
         # Should handle the mix gracefully - invalid objects skipped, valid ones processed
         result = task.accept()
-        self.assertTrue(
-            result, "accept() should return True even with mixed valid/invalid objects"
-        )
+        self.assertTrue(result, "accept() should return True even with mixed valid/invalid objects")
         _msg("  Successfully handled mixed valid/invalid objects")
 
     @patch("CommandInsertLink.Gui.PySideUic.loadUi")
