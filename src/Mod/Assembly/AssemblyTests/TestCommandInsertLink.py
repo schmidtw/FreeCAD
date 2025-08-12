@@ -31,18 +31,9 @@ AttributeError crashes.
 """
 
 import unittest
-import sys
-import os
-import FreeCAD as App
+from unittest.mock import patch, MagicMock
 
-# Handle both direct execution and module execution
-try:
-    # Try relative import first (when run as module)
-    from . import mocks  # pylint: disable=unused-import
-except ImportError:
-    # Fall back to absolute import (when run directly)
-    sys.path.insert(0, os.path.dirname(__file__))
-    import mocks  # pylint: disable=unused-import
+import FreeCAD as App
 
 import CommandInsertLink
 
@@ -100,12 +91,15 @@ class TestCommandInsertLink(unittest.TestCase):
         """
         App.closeDocument(self.doc.Name)
 
-    def test_mixed_valid_and_invalid_objects(self):
+    @patch("CommandInsertLink.Gui.PySideUic.loadUi")
+    @patch("CommandInsertLink.TaskAssemblyInsertLink.adjustTreeWidgetSize")
+    def test_mixed_valid_and_invalid_objects(self, _mock_adjustTreeSize, _mock_loadUi):
         """Test that accept() handles a mix of valid and invalid objects correctly."""
         operation = "Handle mixed valid/invalid objects"
         _msg(f"  Test '{operation}'")
 
-        mock_view = type("MockView", (), {"getSize": lambda: (800, 600)})()
+        mock_view = MagicMock()
+        mock_view.getSize = MagicMock(return_value=(800, 600))
         task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
 
         # Create a mix of valid and invalid objects
@@ -173,29 +167,26 @@ class TestCommandInsertLink(unittest.TestCase):
             task.insertionStack.append(obj_data)
 
         # Should handle the mix gracefully - invalid objects skipped, valid ones processed
-        try:
-            result = task.accept()
-            self.assertTrue(
-                result, "accept() should return True even with mixed valid/invalid objects"
-            )
-            _msg("  Successfully handled mixed valid/invalid objects")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            self.fail(f"Failed to handle mixed objects: {e}")
+        result = task.accept()
+        self.assertTrue(
+            result, "accept() should return True even with mixed valid/invalid objects"
+        )
+        _msg("  Successfully handled mixed valid/invalid objects")
 
-    def test_empty_insertion_stack(self):
+    @patch("CommandInsertLink.Gui.PySideUic.loadUi")
+    @patch("CommandInsertLink.TaskAssemblyInsertLink.adjustTreeWidgetSize")
+    def test_empty_insertion_stack(self, _mock_adjustTreeSize, _mock_ui):
         """Test that accept() handles empty insertion stack correctly."""
         operation = "Handle empty insertion stack"
         _msg(f"  Test '{operation}'")
 
-        mock_view = type("MockView", (), {"getSize": lambda: (800, 600)})()
+        mock_view = MagicMock()
+        mock_view.getSize = MagicMock(return_value=(800, 600))
         task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
 
         # Don't add anything to insertion stack - it should remain empty
         self.assertEqual(len(task.insertionStack), 0, "Insertion stack should be empty")
 
-        try:
-            result = task.accept()
-            self.assertTrue(result, "accept() should return True even with empty insertion stack")
-            _msg("  Successfully handled empty insertion stack")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            self.fail(f"Failed to handle empty insertion stack: {e}")
+        result = task.accept()
+        self.assertTrue(result, "accept() should return True even with empty insertion stack")
+        _msg("  Successfully handled empty insertion stack")

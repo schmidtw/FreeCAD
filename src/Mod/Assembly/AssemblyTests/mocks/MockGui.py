@@ -31,6 +31,7 @@ to enable unit testing without requiring the full FreeCAD environment.
 # pylint: disable=too-few-public-methods
 
 import builtins
+from unittest.mock import MagicMock
 
 
 class MockQIcon:
