@@ -32,10 +32,29 @@ AttributeError crashes.
 
 import unittest
 from unittest.mock import patch, MagicMock
+import sys
+import importlib
+
+# Import mocks first to set up FreeCAD environment
+try:
+    import AssemblyTests.mocks  # This should setup the mocks
+except ImportError:
+    pass
 
 import FreeCAD as App
 
+# Reload CommandInsertLink to pick up GUI mocks
+if 'CommandInsertLink' in sys.modules:
+    importlib.reload(sys.modules['CommandInsertLink'])
+
 import CommandInsertLink
+
+# Debug: Check if TaskAssemblyInsertLink exists
+print(f"DEBUG: App.GuiUp = {App.GuiUp}")
+print(f"DEBUG: hasattr(CommandInsertLink, 'TaskAssemblyInsertLink') = {hasattr(CommandInsertLink, 'TaskAssemblyInsertLink')}")
+print(f"DEBUG: hasattr(CommandInsertLink, 'Gui') = {hasattr(CommandInsertLink, 'Gui')}")
+if hasattr(CommandInsertLink, 'Gui'):
+    print(f"DEBUG: CommandInsertLink.Gui = {CommandInsertLink.Gui}")
 
 
 def _msg(text, end="\n"):
@@ -91,100 +110,104 @@ class TestCommandInsertLink(unittest.TestCase):
         """
         App.closeDocument(self.doc.Name)
 
-    @patch("CommandInsertLink.Gui.PySideUic.loadUi")
-    @patch("CommandInsertLink.TaskAssemblyInsertLink.adjustTreeWidgetSize")
-    def test_mixed_valid_and_invalid_objects(self, _mock_adjustTreeSize, _mock_loadUi):
+    def test_mixed_valid_and_invalid_objects(self):
         """Test that accept() handles a mix of valid and invalid objects correctly."""
         operation = "Handle mixed valid/invalid objects"
         _msg(f"  Test '{operation}'")
 
-        mock_view = MagicMock()
-        mock_view.getSize = MagicMock(return_value=(800, 600))
-        task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
+        # Apply patches inside the test method to avoid import-time errors
+        with patch("FreeCADGui.PySideUic.loadUi"), \
+             patch("CommandInsertLink.TaskAssemblyInsertLink.adjustTreeWidgetSize"):
 
-        # Create a mix of valid and invalid objects
-        test_objects = [
-            # Valid object (would work in real scenario)
-            {
-                "addedObject": type(
-                    "ValidObject",
-                    (),
-                    {
-                        "Name": "ValidObject",
-                        "Label": "Valid Object",
-                        "LinkedObject": type(
-                            "ValidLinkedObject", (), {"Name": "ValidLinkedObjectName"}
-                        )(),
-                    },
-                )(),
-                "translation": App.Vector(1, 1, 1),
-            },
-            # Invalid: LinkedObject is None
-            {
-                "addedObject": type(
-                    "InvalidObject1",
-                    (),
-                    {"Name": "InvalidObject1", "Label": "Invalid Object 1", "LinkedObject": None},
-                )(),
-                "translation": App.Vector(2, 2, 2),
-            },
-            # Invalid: No LinkedObject attribute
-            {
-                "addedObject": type(
-                    "InvalidObject2", (), {"Name": "InvalidObject2", "Label": "Invalid Object 2"}
-                )(),
-                "translation": App.Vector(3, 3, 3),
-            },
-            # Invalid: LinkedObject.Name is None
-            {
-                "addedObject": type(
-                    "InvalidObject3",
-                    (),
-                    {
-                        "Name": "InvalidObject3",
-                        "Label": "Invalid Object 3",
-                        "LinkedObject": type("LinkedObjectWithNoneName", (), {"Name": None})(),
-                    },
-                )(),
-                "translation": App.Vector(4, 4, 4),
-            },
-            # Invalid: No Name attribute
-            {
-                "addedObject": type(
-                    "InvalidObject4",
-                    (),
-                    {
-                        "Label": "Invalid Object 4",
-                        "LinkedObject": type("LinkedObject", (), {"Name": "Something"})(),
-                    },
-                )(),
-                "translation": App.Vector(5, 5, 5),
-            },
-        ]
+            mock_view = MagicMock()
+            mock_view.getSize = MagicMock(return_value=(800, 600))
+            task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
 
-        # Add all objects to insertion stack
-        for obj_data in test_objects:
-            task.insertionStack.append(obj_data)
+            # Create a mix of valid and invalid objects
+            test_objects = [
+                # Valid object (would work in real scenario)
+                {
+                    "addedObject": type(
+                        "ValidObject",
+                        (),
+                        {
+                            "Name": "ValidObject",
+                            "Label": "Valid Object",
+                            "LinkedObject": type(
+                                "ValidLinkedObject", (), {"Name": "ValidLinkedObjectName"}
+                            )(),
+                        },
+                    )(),
+                    "translation": App.Vector(1, 1, 1),
+                },
+                # Invalid: LinkedObject is None
+                {
+                    "addedObject": type(
+                        "InvalidObject1",
+                        (),
+                        {"Name": "InvalidObject1", "Label": "Invalid Object 1", "LinkedObject": None},
+                    )(),
+                    "translation": App.Vector(2, 2, 2),
+                },
+                # Invalid: No LinkedObject attribute
+                {
+                    "addedObject": type(
+                        "InvalidObject2", (), {"Name": "InvalidObject2", "Label": "Invalid Object 2"}
+                    )(),
+                    "translation": App.Vector(3, 3, 3),
+                },
+                # Invalid: LinkedObject.Name is None
+                {
+                    "addedObject": type(
+                        "InvalidObject3",
+                        (),
+                        {
+                            "Name": "InvalidObject3",
+                            "Label": "Invalid Object 3",
+                            "LinkedObject": type("LinkedObjectWithNoneName", (), {"Name": None})(),
+                        },
+                    )(),
+                    "translation": App.Vector(4, 4, 4),
+                },
+                # Invalid: No Name attribute
+                {
+                    "addedObject": type(
+                        "InvalidObject4",
+                        (),
+                        {
+                            "Label": "Invalid Object 4",
+                            "LinkedObject": type("LinkedObject", (), {"Name": "Something"})(),
+                        },
+                    )(),
+                    "translation": App.Vector(5, 5, 5),
+                },
+            ]
 
-        # Should handle the mix gracefully - invalid objects skipped, valid ones processed
-        result = task.accept()
-        self.assertTrue(result, "accept() should return True even with mixed valid/invalid objects")
-        _msg("  Successfully handled mixed valid/invalid objects")
+            # Add all objects to insertion stack
+            for obj_data in test_objects:
+                task.insertionStack.append(obj_data)
 
-    @patch("CommandInsertLink.Gui.PySideUic.loadUi")
-    @patch("CommandInsertLink.TaskAssemblyInsertLink.adjustTreeWidgetSize")
-    def test_empty_insertion_stack(self, _mock_adjustTreeSize, _mock_ui):
+            # Should handle the mix gracefully - invalid objects skipped, valid ones processed
+            result = task.accept()
+            self.assertTrue(result, "accept() should return True even with mixed valid/invalid objects")
+            _msg("  Successfully handled mixed valid/invalid objects")
+
+    def test_empty_insertion_stack(self):
         """Test that accept() handles empty insertion stack correctly."""
         operation = "Handle empty insertion stack"
         _msg(f"  Test '{operation}'")
 
-        mock_view = MagicMock()
-        mock_view.getSize = MagicMock(return_value=(800, 600))
-        task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
+        # Apply patches inside the test method to avoid import-time errors
+        with patch("FreeCADGui.PySideUic.loadUi"), \
+             patch("CommandInsertLink.TaskAssemblyInsertLink.adjustTreeWidgetSize"):
 
-        # Don't add anything to insertion stack - it should remain empty
-        self.assertEqual(len(task.insertionStack), 0, "Insertion stack should be empty")
+            mock_view = MagicMock()
+            mock_view.getSize = MagicMock(return_value=(800, 600))
+            task = CommandInsertLink.TaskAssemblyInsertLink(self.assembly, mock_view)
 
-        result = task.accept()
-        self.assertTrue(result, "accept() should return True even with empty insertion stack")
-        _msg("  Successfully handled empty insertion stack")
+            # Don't add anything to insertion stack - it should remain empty
+            self.assertEqual(len(task.insertionStack), 0, "Insertion stack should be empty")
+
+            result = task.accept()
+            self.assertTrue(result, "accept() should return True even with empty insertion stack")
+            _msg("  Successfully handled empty insertion stack")
