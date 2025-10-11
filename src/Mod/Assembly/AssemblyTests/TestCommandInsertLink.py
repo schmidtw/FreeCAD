@@ -35,7 +35,9 @@ from unittest.mock import patch, MagicMock
 
 import FreeCAD as App
 
-import CommandInsertLink
+# Only import CommandInsertLink if GUI is available
+if App.GuiUp:
+    import CommandInsertLink
 
 
 def _msg(text, end="\n"):
@@ -43,6 +45,7 @@ def _msg(text, end="\n"):
     App.Console.PrintMessage(text + end)
 
 
+@unittest.skipIf(not App.GuiUp, "GUI tests require FreeCAD GUI mode")
 class TestCommandInsertLink(unittest.TestCase):
     """Unit tests for CommandInsertLink module."""
 
